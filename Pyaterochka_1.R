@@ -1,12 +1,13 @@
-promoMSK <- getPromoBooklet('http://pyaterochka.ru/msk/actions/download/')
+promoMSK <- getPromoBooklet('http://pyaterochka.ru/msk/actions/download/', 'МОСКВА')
 
-getPromoBooklet <- function(strURL){
+getPromoBooklet <- function(strURL, terr=""){
      require(XML)
      require(jsonlite)
      require(RCurl)
      
      # Reading html 
-     html <- getURL(strURL, .encoding='UTF-8')
+     html <- getURL(strURL, 
+                    .encoding='UTF-8')
      
      # Formatting a little bit
      html <- gsub(';','',html)
@@ -25,11 +26,12 @@ getPromoBooklet <- function(strURL){
      trim <- function(x) gsub("\\s+|\\s+$", " ", x)
      
      # Finding all items
-     html.parse<-xpathApply(html.raw, path="//div[@class= 'item']", fun=xmlValue)
+     html.parse<-xpathApply(html.raw, 
+                            path="//div[@class= 'item']", 
+                            fun=xmlValue)
      
      # A little bit more formatting
      noT <- gsub('\t','',unlist(html.parse))
-     #noT <- gsub('\t','',html.parse)
      noT <- gsub('\n',';',noT)
      noT <- gsub(';;;;','\n\t',noT)
      noT <- trim(noT)
@@ -46,10 +48,16 @@ getPromoBooklet <- function(strURL){
 
      #noT <- as.data.frame(noT)
      not.df <- strsplit(noT,';')
-     write.table(noT,"D:\\2.csv", row.names=F, quote=F, col.names = F, eol = '\n')
+     write.table(noT,paste("D:\\2.",terr,".csv",sep=""),  
+                 row.names=F, 
+                 quote=F, 
+                 col.names = F, 
+                 eol = '\n')
      
-     #noT.df <- read.table(textConnection(noT), sep=';',header=F )
      # Writing data to file
-     not.df <- as.data.frame(matrix(unlist(not.df), nrow = length(not.df), byrow = T))
+     not.df <- as.data.frame(matrix(unlist(not.df), 
+                                    nrow = length(not.df), 
+                                    byrow = T))
+     not.df$terr = terr
      not.df
 }
