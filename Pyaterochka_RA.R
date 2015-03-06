@@ -10,7 +10,8 @@ fullArray <- data.frame(Sale=character(0),
                         OldPrice=character(0),
                         NewPrice=character(0),
                         ItemName=character(0),
-                        Territory=character(0))
+                        Territory=character(0),
+                        Oblast=character(0))
 # Parsing html
 html.raw<-htmlTreeParse(
      html,
@@ -24,12 +25,29 @@ html.parse.name <-xpathApply(html.raw, path="//ul//a[contains(@id, 'menu')]", xm
 html.parse.name.actions <- html.parse.name[!html.parse.href=='#']
 # paste('http://pyaterochka.ru', html.parse.href.actions[[1]],'actions/', sep="")
 
-n <- length(html.parse.name.actions)
+# n <- length(html.parse.name.actions)
+# 
+# for(iRow in 1:n){
+#      promo <- getPromoBooklet(paste('http://pyaterochka.ru', html.parse.href.actions[[iRow]],'actions/download/', sep=""), html.parse.name.actions[[iRow]])
+#      fullArray <- rbind(fullArray, promo)
+#      paste(iRow,'of', n)
+# }
 
-for(iRow in 1:n){
-     promo <- getPromoBooklet(paste('http://pyaterochka.ru', html.parse.href.actions[[iRow]],'actions/download/', sep=""), html.parse.name.actions[[iRow]])
-     fullArray <- rbind(fullArray, promo)
-     paste(iRow,'of', n)
+n1 <- length(html.parse.name)
+for(iRow in 1:n1){
+     if (html.parse.href[[iRow]]=='#'){
+          oblast <- html.parse.name[[iRow]]
+     } else {
+          promo <- getPromoBooklet(paste('http://pyaterochka.ru', html.parse.href[[iRow]],'actions/download/', sep=""), html.parse.name[[iRow]], oblast)
+          fullArray <- rbind(fullArray, promo)
+          paste(iRow,'of', n)
+     }
 }
+
+write.table(fullArray, "D:\\mydata.txt", sep="\t")
+uniq <- as.character(unique(fullArray[,5]))
+sapply(uniq,agrep,uniq)
+similar <- sapply(uniq,agrep,uniq, max.distance=0.4, value=TRUE) #', costs=c(0,0.5,0.5))
+
 
 # fullArray

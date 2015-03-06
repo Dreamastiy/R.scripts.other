@@ -1,6 +1,6 @@
-promoMSK <- getPromoBooklet('http://pyaterochka.ru/msk/actions/download/', 'МОСКВА')
+promoMSK <- getPromoBooklet('http://pyaterochka.ru/msk/actions/download/', 'МОСКВА', 'МОСКВА')
 
-getPromoBooklet <- function(strURL, terr=""){
+getPromoBooklet <- function(strURL, terr="", oblast=""){
      require(XML)
      require(jsonlite)
      require(RCurl)
@@ -59,5 +59,6 @@ getPromoBooklet <- function(strURL, terr=""){
                                     nrow = length(not.df), 
                                     byrow = T))
      not.df$terr = terr
+     not.df$oblast = oblast
      not.df
 }
