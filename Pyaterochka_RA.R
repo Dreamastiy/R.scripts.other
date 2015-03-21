@@ -38,16 +38,19 @@ for(iRow in 1:n1){
      if (html.parse.href[[iRow]]=='#'){
           oblast <- html.parse.name[[iRow]]
      } else {
-          promo <- getPromoBooklet(paste('http://pyaterochka.ru', html.parse.href[[iRow]],'actions/download/', sep=""), html.parse.name[[iRow]], oblast)
+          # promo <- getPromoBooklet(paste('http://pyaterochka.ru', html.parse.href[[iRow]],'actions/download/', sep=""), html.parse.name[[iRow]], oblast )
+          promo <- getPromoBooklet(paste('http://pyaterochka.ru', html.parse.href[[iRow]],'download/', sep=""), html.parse.name[[iRow]], oblast )
+          
           fullArray <- rbind(fullArray, promo)
           paste(iRow,'of', n)
      }
 }
 
-write.table(fullArray, "D:\\mydata.txt", sep="\t")
+write.table(fullArray, "D:\\mydata1.txt", sep="\t")
 uniq <- as.character(unique(fullArray[,5]))
 sapply(uniq,agrep,uniq)
 similar <- sapply(uniq,agrep,uniq, max.distance=0.4, value=TRUE) #', costs=c(0,0.5,0.5))
-
+write.table(similar, "D:\\similar.txt", sep="\t")
+unlist(similar)
 
 # fullArray
