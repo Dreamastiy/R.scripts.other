@@ -52,7 +52,7 @@ getOnePageBooklet <- function(strURLsub="", curl=getCurlHandle()){
                                      byrow = T)), error=function(e) {print(strURLsub)}  )
 
 }
-
+t2 <- getOneBooklet('http://m.ulmart.ru/catalog/93402')
 
 getOneBooklet <- function(strURLmain="", curl=getCurlHandle()){
      # data frane for the result
@@ -86,8 +86,6 @@ getOneBooklet <- function(strURLmain="", curl=getCurlHandle()){
      }, error=function(e) {print(iPage)})
      # write.table(df, paste0('D:\\', as.numeric(Sys.time()) ,'.csv'), sep=";")     
      df
-
-     
 }
 
 getAllLinks <- function(strURLlevel, curl=getCurlHandle()){
@@ -115,9 +113,10 @@ getAllLinks <- function(strURLlevel, curl=getCurlHandle()){
      cbind(html.parse.names, html.parse.urls)     
 }
 
-getAllLinks('http://m.ulmart.ru', curl=curl)
+AllLinks <- getAllLinks('http://m.ulmart.ru', curl=curl)
 getOneBooklet('http://m.ulmart.ru/catalog/roof_rack', curl=curl)
 getOnePageBooklet('http://m.ulmart.ru/catalog/93402', curl=curl)
+
 
 
 getOneCity <- function(urlMain = "http://m.ulmart.ru", curl = getCurlHandle()){
@@ -148,6 +147,8 @@ getOneCity <- function(urlMain = "http://m.ulmart.ru", curl = getCurlHandle()){
      }
      df.prices
 }
+
+
 
 tempResult <- getOneCity(urlMain = "http://m.ulmart.ru", curl = curl) 
 
@@ -202,8 +203,8 @@ setProxyParameters <- function(x, nRow = 1){
      result
 }
 opts <- list(
-     proxy         = "", 
-     proxyport     = ""
+     proxy         = "1.1.1.1", 
+     proxyport     = "8080"
 )
 getURL("http://stackoverflow.com", .opts = opts)
 
