@@ -1,0 +1,183 @@
+В данной статье хотел бы коснуться такой темы как мониторинг конкурентов. Понимаю, что у данной темы есть как много сторонников, ведь так или иначе мониторинг необходим для успешного развития почти любой компании, так и противники, которые защищют интересы своего бизнеса от мониторщиков. 
+<img src="//habrastorage.org/files/f8c/302/eb9/f8c302eb9c0c4b8f88ba9e0aaa0e6e86.jpg"/>
+Те, кто как то связан с продажами на конкурентном рынке, наверняка знают, что мониторинг конкурентов является важной задачей. Результаты используются для совершенно различных целей - от изменения локальных политик ценообразования и ведения ассортимента до составления стратегических планов развития компании.  Автор решил попрактиковаться в решении данной задачи и промониторить одного из крупных ритейлеров электроники в России. Что из этого вышло - <habracut text="далее под катом" />
+
+<h2>Вместо введения</h2>
+Сразу стоит сказать, что в статье не будет описаний методов социальной инженерии или общения с фирмами, предоставляющими услуги мониторинга. Также добавлю, что не будет и описания анализа мониторинга, только алгоритм сбора и некоторые трудности, с которыми пришлось столкнуться во время работы. Т.к. последнее время все чаще приходится работать в R, то сбор данных я решил сделать в нем же. К тому же все большую популярность набирают открытые данные (например <a href="http://www.hse.ru/rlms/structure">вот</a>, <a href="http://data.gov.ru/opendata">вот</a> или <a href="http://data.mos.ru/datasets">вот</a>) и навык работы с ними прямо из используемой среды будет полезен. Все действия носят демонстративных характер, и полученные дынные не были переданы ни кому.
+
+<h2>Анализ сайта</h2>
+Первое, что нужно сделать, изучить структуру сайта исследуемого конкурента. Начнем с контента. Здесь все довольно просто - есть несколько уровней товарного классификатора, при чем количество уровней для любого товара всегда одинаково. До списка товаров можно добраться через уровень 2 или уровень 3. Для дальнейшей работы было решено использовать уровень 2.
+Следующим шагом было исследование исходного кода страницы со списком требуемых товаров и выяснение ее структуры. Тут тоже более мне все понятно. HTML-контейнеры для каждого товара. Но тут нас ждет первая сложность - в коде страницы содержится информация только о первых 30 товарах в списке - понятно, что нас это не устраивает. Автор не понял как программно приказать показать еще 30 товаров, поэтому решено было изучить мобильную версию сайта. В мобильной версии все оказалось еще проще - внизу страницы есть ссылки на следующую страницу и на последнюю. К тому же мобильная версия сайта гораздо менее "замусоренная" лишними ссылками и тэгами. Правда в отличии от полной версии, в мобильной отображаются страницы по 15 товаров.
+
+<h2>Пишем код</h2>
+Изначально решено было разделить код на несколько составляющих:
+1. Функция, которая собирает информацию с конкретной страницы. Принимает на вход URL конкретной страницы, на которой находится до 15 товаров. Функция возвращает data.frame содержащий информацию о наличии, наименовании, артикуле, количестве отзывов и ценах товаров.
+<spoiler title="Первая функция">
+<source lang="R">
+getOnePageBooklet <- function(strURLsub="", curl=getCurlHandle()){
+     # loading the required page
+     html <- getURL(strURLsub, 
+                    .encoding='UTF-8', 
+                    curl=curl)
+     # parsing html
+     html.raw <- htmlTreeParse(
+          html,
+          useInternalNodes=T
+     )
+     # searching for SKU nodes
+     html.parse.SKU <- xpathApply(html.raw, 
+                                  path="//section[@class='b-product']", 
+                                  fun=xmlValue)
+     
+     # some regex :)
+     noT <- gsub(' ([0-9]+)\\s([0-9]+) ',' \\1\\2 ',unlist(html.parse.SKU))
+     noT <- gsub(';',',',noT)
+     noT <- gsub('\r\n',';',noT)
+     noT <- trim(noT)
+     noT <- gsub("(\\s;)+", " ", noT)
+     noT <- gsub("^;\\s ", "", noT)
+     noT <- gsub(";\\s+([0-9]+)\\s+;", "\\1", noT)
+     noT <- gsub(" ; ", "", noT)
+     noT <- gsub("Артикул ", "", noT)
+     noT <- gsub("\\s+Купить;\\s*", "", noT)
+     noT <- gsub("\\s+руб.;\\s*", "", noT)
+     noT <- gsub(";\\s+", ";", noT)
+
+     # text to list
+     not.df <- strsplit(noT,';')
+
+     # list to nice df
+     tryCatch(
+     not.df <- as.data.frame(matrix(unlist(not.df), 
+                                     nrow = length(not.df), 
+                                     byrow = T)), error=function(e) {print(strURLsub)}  )
+
+}
+</source>
+</spoiler>
+2. Функция, которая, используя функцию 1, собирает информацию со всех страниц заданного уровня товарного классификатора. Основной смысл данной функции - найти номер последней страницы, пробежаться от первой до последней с помощью функции 1 и объединить полученные результаты в один data.frame. Результат функции - data.frame со всеми товарами данного уровня товарного классификатора.
+<spoiler title="Вторая функция">
+<source lang="R">
+getOneBooklet <- function(strURLmain="", curl=getCurlHandle()){
+     # data frane for the result
+     df <- data.frame(inStock=character(), SKU=character(), Article=numeric(), Comment=numeric(), Price=numeric()) 
+     
+     # loading main subpage
+     html <- getURL(strURLmain, 
+                    .encoding='UTF-8', 
+                    curl=curl)
+     # parsing main subpage
+     html.raw <- htmlTreeParse(
+          html,
+          useInternalNodes=T
+     )
+     # finding last subpage
+     html.parse.pages <- xpathApply(html.raw, 
+                                    path="//a[@class='page g-nouline']", 
+                                    fun=xmlValue)
+     if(length(html.parse.pages)==0){
+          urlMax <- 1
+     }else{
+          urlMax <- as.numeric(unlist(html.parse.pages)[length(unlist(html.parse.pages))])          
+     }
+
+     # loop for all sybpages
+     tryCatch(
+     for(iPage in 1:urlMax){
+          strToB <- paste0(strURLmain, '?pageNum=',iPage)
+          df.inter <- getOnePageBooklet(strToB, curl)
+          df <- rbind(df, df.inter)
+     }, error=function(e) {print(iPage)})
+     # write.table(df, paste0('D:\\', as.numeric(Sys.time()) ,'.csv'), sep=";")     
+     df
+}
+</source>
+</spoiler>
+3. Функция, которая, используя функцию 2, собирает информацию со всех имеющихся уровней товарного классификатора. Кроме того к полученным данным добавляются названия уровней классификатора. На всякий случай, когда целиком собрана информация по одной категории - результат сохраняется на диске. 
+<spoiler title="Третья функция">
+<source lang="R">
+     df.prices <- data.frame(inStock = character(), 
+                             SKU = character(), 
+                             Article = numeric(), 
+                             Comment = numeric(), 
+                             Price = numeric(), 
+                             level1 = character(),
+                             level2 = character())
+     level1 <- getAllLinks(urlMain, curl)
+     numLevel1 <- length(level1[,2])
+     
+     for (iLevel1 in 1:numLevel1){
+          strURLsubmain <- paste0(urlMain, level1[iLevel1, 2])
+          level2 <- getAllLinks(strURLsubmain, curl)
+          numLevel2 <- length(level2[,2])
+          
+          for (iLevel2 in 1:numLevel2){
+               strURLsku <- paste0(urlMain, level2[iLevel2,2])
+               df.temp <- getOneBooklet(strURLsku, curl)
+               df.temp$level1 <- level1[iLevel1,1]
+               df.temp$level2 <- level2[iLevel2,1]
+               
+               df.prices <- rbind(df.prices, df.temp)
+          }
+          write.table(df.prices, paste0('D:\\', iLevel1 ,'.csv'), sep=";", quote = FALSE)          
+     }
+     df.prices
+</source>
+</spoiler>
+В дальнейшем, испугавшись молота бана, пришлось добавить еще функцию - использующую прокси. В последствии выяснилось, что банить никто даже не собирался, весь классификатор, с учетом тестирования скриптов, был собран без проблем, поэтому все ограничилось созданием data.frame с информацией по ста прокси, которые так и не использовались. 
+<spoiler title="Получение списка proxy">
+<source lang="R">
+getProxyAddress <- function(){
+     htmlProxies <- getURL('http://www.google-proxy.net/', 
+                           .encoding='UTF-8')
+     #htmlProxies <- gsub('</td></tr>','  \n ', htmlProxies)
+     htmlProxies <- gsub('\n','', htmlProxies)
+     htmlProxies <- gsub('(</td><td>)|(</td></tr>)',' ; ', htmlProxies)
+     # parsing main subpage
+     htmlProxies.raw <- htmlTreeParse(
+          htmlProxies,
+          useInternalNodes=T
+     )
+
+     # finding last subpage
+     html.parse.proxies <- xpathApply(htmlProxies.raw, 
+                                    path="//tbody", 
+                                    fun=xmlValue)
+     html.parse.proxies<- gsub('( )+','', html.parse.proxies)
+     final <- unlist(strsplit(as.character(html.parse.proxies),';'))
+     final <- as.data.frame(matrix(final[1:800], 
+                                    nrow = length(final)/8, 
+                                    ncol = 8,
+                                    byrow=T))
+     #final <- gsub('( )+','', final)
+     names(final) <- c('IP','Port','Code','Country','Proxy type','Google','Https','Last checked')
+     sapply(final, as.character)
+}
+</source>
+</spoiler>
+Использовать прокси можно вот так
+<spoiler title="Как использовать прокси">
+<source lang="R">
+opts <- list(
+     proxy         = "1.1.1.1", 
+     proxyport     = "8080"
+)
+getURL("http://habrahabr.ru", .opts = opts)
+</source>
+</spoiler>
+Структуры всех составляющих кода похожи. Используются функции getURL из пакета <a href="http://cran.r-project.org/web/packages/RCurl/RCurl.pdf">RCurl</a>, htmlTreeParse и xpathApply из пакета <a href="http://cran.r-project.org/web/packages/XML/XML.pdf">XML</a> и несколько регулярных выражений.
+Последней сложностью стало указание города, цены в котором мы хотим узнать. По умолчанию выдавалась информация по ценам доставки по почте с неопределенным наличием товара. При заходе на сайт исследуемой компании возникает окно, которое предлагает выбрать город-месторасположение. Данная информация затем сохраняется в куки браузера и используется для показа цен и товаров в выбранном городе. Для того, чтобы R мог сохранять куки, необходимо задать свойства используемого соединения.
+<spoiler title="Свойства соединения">
+<source lang="R">
+agent    ="Mozilla/5.0"
+curl = getCurlHandle()
+curlSetOpt(cookiejar="cookies.txt",  
+           useragent = agent, 
+           followlocation = TRUE, 
+           curl=curl)
+</source>
+</spoiler>
+<h2>Вместо заключения</h2>
+Все, задав требуемые параметры, запускаем функцию 3, ждем около получаса и получаем список со всеми товарами и категориями исследуемого сайта. Получилось более 60 000 цен для города Москва. Результат представляется в виде data.frame и нескольких сохраненных файлов на диске. 
+Скрипт целиком находится на <a href="https://github.com/Dreamastiy/R.scripts.other">GitHub</a>
+Спасибо за уделенное внимание.
