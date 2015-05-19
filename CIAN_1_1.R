@@ -8,64 +8,64 @@ getPromoBooklet <- function(strURL){
      require(XML)
      require(jsonlite)
      require(RCurl)
-     Sys.setlocale("LC_ALL", "Ru_Ru")
-     Sys.getlocale()
-     # Reading html 
      html <- getURL(strURL)#, 
                     .encoding='UTF-8')
      
-     # Formatting a little bit
-#      html <- gsub(';','',html)
-#      html <- gsub('&nbsp',';',html)
-#      html <- gsub('</div>',' </div>',html)
-#      html <- gsub('<sup>','.',html)
-#      html <- gsub('</sup>',';',html)
-     
-     # Parsing html
      html.raw<-htmlTreeParse(
           html,
-          useInternalNodes=T
+          useInternalNodes=T ,encoding="UTF-8"
      )
-     
+     result <- data.frame(adress = character(), 
+                          coment = character(),
+                          price = character(),
+                          info = character(),
+                          coord = character(),
+                          metro = character())
      # Remove all spaces
      trim <- function(x) gsub("\\s+|\\s+$", " ", x)
      
      # Finding all items
-     html.parse<-xpathApply(html.raw, 
-                            path="//div[@class= 'object_descr_text']", 
+     html.adress<-xpathApply(html.raw, 
+                            path="//h1[@class='object_descr_addr']", 
                             fun=xmlValue)
-     noT <- gsub('\n\n.+','',unlist(html.parse))
-     trim(noT)
-     ?xpathApply
-     # A little bit more formatting
-     noT <- gsub('\t','',unlist(html.parse))
-     noT <- gsub('\n',';',noT)
-     noT <- gsub(';;;;','\n\t',noT)
-     noT <- trim(noT)
-     noT <- gsub('; ; ; ; ([0-9.]+);;',';;;;; \\1;;',noT)
-     noT <- gsub('; ',';',noT)
-     noT <- gsub('^;;','',noT)
-     noT <- gsub(";;;([à-ÿÀ-ß])",'\\1',noT)
-     noT <- gsub(";;;([a-zA-Z])",'\\1',noT)
-     noT <- gsub("(;;;;)$",'',noT)
-     noT <- gsub("^;",'NA;',noT)
-     noT <- gsub(";;",';NA;',noT)
-     noT <- gsub(";;",';NA;',noT)
-     noT <- gsub(";$",';NA',noT)
-
-     #noT <- as.data.frame(noT)
-     not.df <- strsplit(noT,';')
-     write.table(noT,paste("D:\\2.",terr,".csv",sep=""),  
-                 row.names=F, 
-                 quote=F, 
-                 col.names = F, 
-                 eol = '\n')
+     noT <- gsub('\n\n.+','',unlist(html.adress))
+     adress <- trim(noT)
      
-     # Writing data to file
-     not.df <- as.data.frame(matrix(unlist(not.df), 
-                                    nrow = length(not.df), 
-                                    byrow = T))
-     not.df$terr = terr
-     not.df$oblast = oblast
-     not.df
+     html.comment<-xpathApply(html.raw, 
+                              path="//div[@class= 'object_descr_text']", 
+                              fun=xmlValue)
+     noT <- gsub('\n\n.+','',unlist(html.comment))
+     comment <- trim(noT)
+     
+     html.price<-xpathApply(html.raw, 
+                              path="//div[@class= 'object_descr_price']", 
+                              fun=xmlValue)
+     noT <- gsub('\n\n\n\n.+','',unlist(html.price))
+     price <- trim(noT)
+     
+     html.info<-xpathApply(html.raw, 
+                            path="//table[@class= 'object_descr_props']", 
+                            fun=xmlValue)
+     noT <- gsub('\n\n\n\n.+','',unlist(html.info))
+     info <- trim(noT)
+     
+     html.coord<-xpathApply(html.raw, 
+                           path="//td[@class= 'object_descr_td_r']", 
+                           fun=xmlValue)
+     noT <- gsub('\n\n\n\n.+','',unlist(html.coord))
+     coord <- trim(noT)
+     coord <- gsub(pattern = "(.*center: \\[)(.*)(\\], zoom.*)",
+          replacement = "\\2",
+          x = coord)
+     
+     html.metro<-xpathApply(html.raw, 
+                            path="//div[@class= 'object_descr_metro']", 
+                            fun=xmlValue)
+     noT <- gsub('\n\n\n\n.+','',unlist(html.metro))
+     metro <- trim(noT)
+     
+     result <- rbind(result,cbind(adress, comment, price, info, coord, metro))
+     result
+     
+     
 }
