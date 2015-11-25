@@ -1,6 +1,6 @@
 #strURL <- 'http://www.cian.ru/cat.php?deal_type=2&obl_id=1&city[0]=1&minprice=2000000&p=1'
 final.result <-  data.frame(adress = character(), 
-                            coment = character(),
+                            #coment = character(),
                             price = character(),
                             info = character(),
                             coord = character(),
@@ -15,8 +15,12 @@ for (iPage in 1:4000){
           flat.result <- getApatartPage(strURL.flats)
           final.result <- rbind(final.result, flat.result)
           iC <- iC + 1
-          if( (iC - (iC %/% 100) * 100) == 0 ){
-               write.table(final.result, paste0('D:\\CIAN_',iC,'.csv'), sep='\t', dec=',' )
+          if( (iC - (iC %/% 25) * 25) == 0 ){
+               Sys.sleep(2)
+               print(iC)
+          }
+          if( (iC - (iC %/% 20000) * 20000) == 0 ){
+               write.csv(final.result, paste0('D:\\CIAN_',iC,'.csv'))
           }
      }
 }
@@ -25,9 +29,9 @@ for (iPage in 1:4000){
 
 getApatartPage<- function(strURL){
      # Connecting libraries
-#      require(XML)
-#      require(jsonlite)
-#      require(RCurl)
+#        require(XML)
+#        require(jsonlite)
+#        require(RCurl)
      # Loading page
      html <- getURL(strURL, .encoding='UTF-8')
      
@@ -39,7 +43,7 @@ getApatartPage<- function(strURL){
      
      # Declaring result array
      result <- data.frame(adress = character(), 
-                          coment = character(),
+                          #coment = character(),
                           price = character(),
                           info = character(),
                           coord = character(),
@@ -93,7 +97,8 @@ getApatartPage<- function(strURL){
      noT <- gsub('\n\n\n\n.+','',unlist(html.metro))
      metro <- trim(noT)
      
-     result <- rbind(result,cbind(adress, comment, price, info, coord, metro))
+     #result <- rbind(result,cbind(adress, comment, price, info, coord, metro))
+     result <- rbind(result,cbind(adress, price, info, coord, metro))
      return(result)
 }
 
